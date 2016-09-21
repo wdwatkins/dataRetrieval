@@ -328,6 +328,6 @@ countyCdLookup <- function(state, county, outputType = "id"){
 
 # convert variables in dots to usable format
 convertDots <- function(matchReturn){
-  retVal <- sapply(matchReturn, function(x) as.character(paste(eval(x),collapse=",",sep="")))
+  retVal <- sapply(matchReturn, function(x) as.character(paste0(eval(x),collapse=",")))
   return(retVal)
 }
