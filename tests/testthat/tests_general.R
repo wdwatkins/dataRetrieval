@@ -9,6 +9,7 @@ test_that("General NWIS retrievals working", {
   # saveRDS(multiSite, "rds/multiSite.rds")
   
   expect_error(readNWISdata(), "No arguments supplied")
+  expect_error(readNWISdata(siteNumber = NA), "NA's are not allowed in query")
   
   bBoxEx <- readNWISdata(bBox=c(-83,36.5,-81,38.5), parameterCd="00010")
   expect_that(length(unique(bBoxEx$site_no)) > 1, is_true())
@@ -88,8 +89,43 @@ test_that("General NWIS retrievals working", {
   AS <- readNWISdata(stateCd = "AS", service="site")
   expect_gt(nrow(AS),0)
   
+  site_id <- '01594440'
+  rating_curve <- readNWISdata(service = "rating", site_no = site_id, file_type="base")
+  rating_curve2 <- readNWISrating(siteNumber = site_id, type = "base")
+  expect_equal(attr(rating_curve,"url"), "https://waterdata.usgs.gov/nwisweb/get_ratings/?site_no=01594440&file_type=base")
+  expect_equal(rating_curve$INDEP, rating_curve2$INDEP)
+  
+  state_rating_list <- readNWISdata(service = "rating", file_type="base", period = 24)
+  expect_true(all(names(state_rating_list) %in% c("agency_cd",
+                                              "site_no",
+                                              "type",
+                                              "update_time",
+                                              "url")))
+  
 })
 
+test_that("whatNWISdata",{
+  
+  #no service specified:
+  availableData <- whatNWISdata(siteNumber = '05114000')
+  expect_equal(ncol(availableData), 24)
+  
+  uvData <- whatNWISdata(siteNumber = '05114000',service="uv")
+  expect_equal(unique(uvData$data_type_cd), "uv")
+  
+  #multiple services
+  uvDataMulti <- whatNWISdata(siteNumber = c('05114000','09423350'),service=c("uv","dv"))
+  expect_true(all(unique(uvDataMulti$data_type_cd) %in% c("uv","dv")))
+  
+  #state codes:
+  flowAndTemp <- whatNWISdata(stateCd = "WI", service = c("uv","dv"),
+                              parameterCd = c("00060","00010"),
+                              statCd = "00003")
+  expect_true(all(unique(flowAndTemp$data_type_cd) %in% c("uv","dv")))
+  expect_true(all(unique(flowAndTemp$parm_cd) %in% c("00060","00010")))
+  expect_true(all(unique(flowAndTemp$stat_cd) %in% c("00003",NA)))
+  
+})
 
 test_that("General WQP retrievals working", {
   testthat::skip_on_cran()
@@ -113,8 +149,8 @@ test_that("General WQP retrievals working", {
   expect_true("list" %in% class(wqp.summary))
   
   #pretty sloooow:
-  wqp.data <- readWQPdata(args_2, querySummary = FALSE)
-  expect_false("list" %in% class(wqp.data))
+  # wqp.data <- readWQPdata(args_2, querySummary = FALSE)
+  # expect_false("list" %in% class(wqp.data))
   
   # Testing multiple lists:
   arg_3 <- list('startDateLo' = startDate,
