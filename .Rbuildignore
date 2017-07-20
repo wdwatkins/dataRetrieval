@@ -1,12 +1,12 @@
 .Rhistory
-vignettes/figure
+vignettes/figures
 appveyor.yml
 .travis.yml
 .gitignore
 dataRetrieval.Rproj
 examplePhosQuery.R
-README.md
 dataRetrieval-concordance.tex
+README.md
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^\.travis\.yml$

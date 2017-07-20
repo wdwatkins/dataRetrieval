@@ -2,6 +2,5 @@
 .Rhistory
 .RData
 .Ruserdata
-retVal.workspace
-retval.wkspc
-importWaterML1_orig.r
+dataRetrieval.Rproj
+.gitignore

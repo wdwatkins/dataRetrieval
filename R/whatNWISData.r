@@ -69,11 +69,15 @@ whatNWISdata <- function(siteNumbers,service="all",parameterCd="all",statCd="all
   siteNumber <- paste(siteNumbers,collapse=",")
   
   if(!("all" %in% service)){
-    service <- match.arg(service, c("dv","uv","qw","ad","id","pk","sv","gw","aw","all","ad","iv","rt"), several.ok = TRUE)
-  }
+    service <- match.arg(service, c("dv","uv","qw","ad","id","pk","sv","gw","aw","all","ad","iv"), several.ok = TRUE)
+    
+    if(service == "uv"){
+      service <- "iv"
+    }
+  } 
   
   if(!("all" %in% parameterCd)){
-    if(any(!is.na(parameterCd))){
+    if(anyNA(parameterCd)){
       pcodeCheck <- all(nchar(parameterCd) == 5) & all(!is.na(suppressWarnings(as.numeric(parameterCd))))
       
       if(!pcodeCheck){
