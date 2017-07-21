@@ -168,12 +168,9 @@ retrieveObservation <- function(featureID, asDateTime, attrs, tz){
                responseFormat = "text/xml", featureOfInterest = paste("VW_GWDP_GEOSERVER", featureID, sep = "."))
   
   returnData <- importNGWMN(url, asDateTime=asDateTime, tz = tz)
-  if(nrow(returnData) == 0){
-    #need to add NA attributes, so they aren't messed up when stored as DFs
-    attr(returnData, "gml:identifier") <- NA
-    attr(returnData, "generationDate") <- NA
-  }
   
+  #TODO: a lot of this can go?
+ 
   #mutate removes the attributes, need to save and append
   attribs <- saveAttrs(attrs, returnData)
   if(nrow(returnData) > 0){

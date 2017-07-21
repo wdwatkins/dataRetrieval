@@ -65,34 +65,26 @@ importNGWMN <- function(input, asDateTime=FALSE, tz="UTC"){
       return(df)
     }
     
-    mergedDF <- NULL
-    #TODO: lapply here instead?
-    for(t in timeSeries){
-      df <- importWaterML2(t, asDateTime, tz)
-      
-      if (is.null(mergedDF)){
-        mergedDF <- df
-      } else {
-        similarNames <- intersect(colnames(mergedDF), colnames(df))
-        mergedDF <- full_join(mergedDF, df, by=similarNames)
-      }
-    }
+    site_df_list <- lapply(X = timeSeries, FUN = importWaterML2, 
+                           asDateTime=asDateTime, tz = tz)
+    #pull out attributes from each, then bind rows
+    attrs_to_save <- c("dateStamp", "featureOfInterest", "contact",
+                       "responsibleParty")
+    attr_list <- lapply(X = site_df_list, FUN = saveAttrs, attrs = attrs_to_save)
+    attr_df <- do.call(bind_rows, args = attr_list)
+    mergedDF <- do.call(bind_rows, args = site_df_list)
+    attributes(mergedDF) <- c(attributes(mergedDF), attr_df)
     
     if(!raw){
       url <- input
       attr(mergedDF, "url") <- url
     }
+    
     if(asDateTime){
       mergedDF$date <- as.Date(mergedDF$date)
     }
-    nonDateCols <- grep("date",names(mergedDF), value=TRUE, invert = TRUE)
     
-    if(nrow(mergedDF) > 0){
-      mergedDF[nonDateCols][mergedDF[nonDateCols] == "" | mergedDF[nonDateCols]== -999999.0] <- NA
-    }
-    
-    
-  }else if(response == "GetFeatureOfInterestResponse"){
+  } else if(response == "GetFeatureOfInterestResponse"){
     featureMembers <- xml_find_all(returnedDoc, ".//sos:featureMember")
     site <- xml_text(xml_find_all(featureMembers,".//gml:identifier"))
     site <- substring(site, 8)
@@ -128,7 +120,7 @@ importNGWMN <- function(input, asDateTime=FALSE, tz="UTC"){
 importWaterML2 <- function(input, asDateTime, tz){
   
   wml2_nodes <- xml_find_all(input, ".//wml2:MeasurementTimeseries")
-  wml2_parsed <- parseWaterML2TimeSeries(wml2_nodes)
+  wml2_parsed <- parseWaterML2TimeSeries(wml2_nodes, asDateTime, tz)
   
   foi <- xml_attr(xml_find_all(input, ".//om:featureOfInterest"), "title") 
   foi_agency_id <- sub('.*\\ ', '', foi)
@@ -163,7 +155,7 @@ importWaterML2 <- function(input, asDateTime, tz){
 #' @importFrom xml2 xml_attr xml_find_all xml_text 
 #' @importFrom dplyr mutate
 #' @importFrom lubridate parse_date_time
-parseWaterML2TimeSeries <- function(input, asDateTime=FALSE, tz="UTC") {
+parseWaterML2TimeSeries <- function(input, asDateTime, tz) {
   
   gmlID <- xml_attr(input,"id") #TODO: make this an attribute
   TVP <- xml_find_all(input, ".//wml2:MeasurementTVP")#time-value pairs
