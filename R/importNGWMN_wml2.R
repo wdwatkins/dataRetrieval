@@ -55,7 +55,7 @@ importNGWMN <- function(input, asDateTime=FALSE, tz="UTC"){
   response <- xml_name(returnedDoc)
   if(response == "GetObservationResponse"){
     
-    timeSeries <- xml_find_all(returnedDoc, "//wml2:MeasurementTimeseries") #each parameter/site combo
+    timeSeries <- xml_find_all(returnedDoc, "//sos:observationData") #each parameter/site combo
     
     if(0 == length(timeSeries)){
       df <- data.frame()
@@ -66,7 +66,7 @@ importNGWMN <- function(input, asDateTime=FALSE, tz="UTC"){
     }
     
     mergedDF <- NULL
-    
+    #TODO: lapply here instead?
     for(t in timeSeries){
       df <- importWaterML2(t, asDateTime, tz)
       
@@ -90,11 +90,7 @@ importNGWMN <- function(input, asDateTime=FALSE, tz="UTC"){
     if(nrow(mergedDF) > 0){
       mergedDF[nonDateCols][mergedDF[nonDateCols] == "" | mergedDF[nonDateCols]== -999999.0] <- NA
     }
-    attr(mergedDF, "gml:identifier") <- xml_text(xml_find_all(returnedDoc, ".//gml:identifier")) 
-    attr(mergedDF, "generationDate") <- xml_text(xml_find_all(returnedDoc, ".//wml2:generationDate")) 
-    meta <- xml_find_all(returnedDoc, ".//gmd:contact")
-    attr(mergedDF, "contact") <- xml_attr(meta, "href")
-    attr(mergedDF, "responsibleParty") <- xml_text(xml_find_all(meta, ".//gco:CharacterString"))
+    
     
   }else if(response == "GetFeatureOfInterestResponse"){
     featureMembers <- xml_find_all(returnedDoc, ".//sos:featureMember")
@@ -118,6 +114,41 @@ importNGWMN <- function(input, asDateTime=FALSE, tz="UTC"){
   return(mergedDF)
 }
 
+
+#' Read waterML2 inside a SOS observation block 
+#'
+#' @param input input nodes - should be an sos:observationData node and children
+#' @param asDateTime logical should dateTimes be converted from strings?
+#' @param tz character timezone
+#' @return parsed ML2 data and associated metadata
+#' @importFrom xml2 xml_find_all xml_text xml_attr
+#' @importFrom dplyr mutate select
+#' @export
+#'
+importWaterML2 <- function(input, asDateTime, tz){
+  
+  wml2_nodes <- xml_find_all(input, ".//wml2:MeasurementTimeseries")
+  wml2_parsed <- parseWaterML2TimeSeries(wml2_nodes)
+  
+  foi <- xml_attr(xml_find_all(input, ".//om:featureOfInterest"), "title") 
+  foi_agency_id <- sub('.*\\ ', '', foi)
+  siteID <- strsplit(x = foi_agency_id, split = "[.|-]")[[1]][[2]]
+  
+  #add new columns
+  wml2_parsed <- mutate(wml2_parsed, featureOfInterest=foi_agency_id, site_no=siteID)
+  wml2_parsed_reordered <- select(wml2_parsed, featureOfInterest, source, 
+                                  site_no, everything())
+  
+  #tack on attributes
+  attr(wml2_parsed_reordered, "dateStamp") <- xml_text(xml_find_all(input, ".//gco:DateTime")) 
+  attr(wml2_parsed_reordered, "featureOfInterest") <- foi_agency_id
+  meta <- xml_find_all(input, ".//gmd:contact")
+  attr(wml2_parsed_reordered, "contact") <- xml_attr(meta, "href")
+  attr(wml2_parsed_reordered, "responsibleParty") <- xml_text(xml_find_all(meta, ".//gco:CharacterString"))
+  return(wml2_parsed_reordered)
+}
+
+
 #' Parse the WaterML2 timeseries portion of a waterML2 file
 #' 
 #' Returns data frame columns of all information with each time series measurement;
@@ -132,32 +163,20 @@ importNGWMN <- function(input, asDateTime=FALSE, tz="UTC"){
 #' @importFrom xml2 xml_attr xml_find_all xml_text 
 #' @importFrom dplyr mutate
 #' @importFrom lubridate parse_date_time
-#' @export
-#' @examples 
-#' baseURL <- "https://waterservices.usgs.gov/nwis/dv/?format=waterml,2.0"
-#' URL <- paste(baseURL, "sites=01646500",
-#'      "startDT=2014-09-01",
-#'      "endDT=2014-09-08",
-#'      "statCd=00003",
-#'      "parameterCd=00060",sep="&")
-#' \dontrun{
-#' timesereies <- importWaterML2(URL, asDateTime=TRUE, tz="UTC")
-#' } 
-importWaterML2 <- function(input, asDateTime=FALSE, tz="UTC") {
+parseWaterML2TimeSeries <- function(input, asDateTime=FALSE, tz="UTC") {
   
-  returnedDoc <- check_if_xml(input)
-  raw <- class(input) == 'raw'
-  
-  gmlID <- xml_attr(returnedDoc,"id") #TODO: make this an attribute
-  TVP <- xml_find_all(returnedDoc, ".//wml2:MeasurementTVP")#time-value pairs
+  gmlID <- xml_attr(input,"id") #TODO: make this an attribute
+  TVP <- xml_find_all(input, ".//wml2:MeasurementTVP")#time-value pairs
   if(length(TVP) == 0) { #empty nodes on some sites
     return(data.frame(site = character(0), source = character(0), date = character(0),
                       time = character(0), dateTime = character(0), value = numeric(0),
                       uom = character(0), comment = character(0), stringsAsFactors = FALSE))
   }
-  rawTime <- xml_text(xml_find_all(TVP,".//wml2:time"))
+  #searching from input instead of TVP, because TVP makes xml2 hang
+  #don't know why that is happening
+  rawTime <- xml_text(xml_find_all(input,".//wml2:time"))
   
-  valueNodes <- xml_find_all(TVP,".//wml2:value")
+  valueNodes <- xml_find_all(input,".//wml2:value")
   values <- as.numeric(xml_text(valueNodes))
   nVals <- length(values)
   
@@ -185,11 +204,11 @@ importWaterML2 <- function(input, asDateTime=FALSE, tz="UTC") {
   }
   
   uom <- xml_attr(valueNodes, "uom", default = NA)
-  
-  source <- xml_attr(xml_find_all(TVP, ".//wml2:source"), "title")
-  comment <- xml_text(xml_find_all(TVP, ".//wml2:comment"))
-  tvpQuals <- xml_text(xml_find_all(TVP, ".//swe:description"))
-  defaultMeta <- xml_find_all(returnedDoc, ".//wml2:DefaultTVPMeasurementMetadata")
+  #same here with xml_find_all not liking TVP
+  source <- xml_attr(xml_find_all(input, ".//wml2:source"), "title")
+  comment <- xml_text(xml_find_all(input, ".//wml2:comment"))
+  tvpQuals <- xml_text(xml_find_all(input, ".//swe:description"))
+  defaultMeta <- xml_find_all(input, ".//wml2:DefaultTVPMeasurementMetadata")
   defaultQuals <- xml_text(xml_find_all(defaultMeta, ".//swe:description"))
   defaultUOM <- xml_attr(xml_find_all(defaultMeta, ".//wml2:uom"), "title", default = NA)
  

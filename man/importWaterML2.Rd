@@ -2,32 +2,20 @@
 % Please edit documentation in R/importNGWMN_wml2.R
 \name{importWaterML2}
 \alias{importWaterML2}
-\title{Parse the WaterML2 timeseries portion of a waterML2 file}
+\title{Read waterML2 inside a SOS observation block}
 \usage{
-importWaterML2(input, asDateTime = FALSE, tz = "UTC")
+importWaterML2(input, asDateTime, tz)
 }
 \arguments{
-\item{input}{XML with only the wml2:MeasurementTimeseries node and children}
+\item{input}{input nodes - should be an sos:observationData node and children}
 
-\item{asDateTime}{logical, if \code{TRUE} returns date and time as POSIXct, if \code{FALSE}, character}
+\item{asDateTime}{logical should dateTimes be converted from strings?}
 
-\item{tz}{character to set timezone attribute of datetime. Default is an empty quote, which converts the 
-datetimes to UTC (properly accounting for daylight savings times based on the data's provided time zone offset).
-Possible values are "America/New_York","America/Chicago", "America/Denver","America/Los_Angeles",
-"America/Anchorage","America/Honolulu","America/Jamaica","America/Managua","America/Phoenix", and "America/Metlakatla"}
+\item{tz}{character timezone}
+}
+\value{
+parsed ML2 data and associated metadata
 }
 \description{
-Returns data frame columns of all information with each time series measurement;
-Anything defined as a default, is returned as an attribute of that data frame.
-}
-\examples{
-baseURL <- "https://waterservices.usgs.gov/nwis/dv/?format=waterml,2.0"
-URL <- paste(baseURL, "sites=01646500",
-     "startDT=2014-09-01",
-     "endDT=2014-09-08",
-     "statCd=00003",
-     "parameterCd=00060",sep="&")
-\dontrun{
-timesereies <- importWaterML2(URL, asDateTime=TRUE, tz="UTC")
-} 
+Read waterML2 inside a SOS observation block
 }
