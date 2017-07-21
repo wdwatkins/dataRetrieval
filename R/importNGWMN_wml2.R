@@ -120,6 +120,15 @@ importNGWMN <- function(input, asDateTime=FALSE, tz="UTC"){
 importWaterML2 <- function(input, asDateTime, tz){
   
   wml2_nodes <- xml_find_all(input, ".//wml2:MeasurementTimeseries")
+  if(length(wml2_nodes) == 0) { #site has no data
+    emptyDF <- data.frame()
+    #if these attributes are nulls it breaks bind_rows later
+    attr(emptyDF, "contact") <- NA
+    attr(emptyDF, "dateStamp") <- NA
+    attr(emptyDF, "featureOfInterest") <- NA
+    attr(emptyDF, "responsibleParty") <- NA
+    return(emptyDF)
+  }
   wml2_parsed <- parseWaterML2TimeSeries(wml2_nodes, asDateTime, tz)
   
   foi <- xml_attr(xml_find_all(input, ".//om:featureOfInterest"), "title") 
