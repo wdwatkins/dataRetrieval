@@ -53,24 +53,13 @@ readNGWMNdata <- function(service, ..., asDateTime = TRUE, tz = "UTC"){
   match.arg(service, c("observation", "featureOfInterest"))
   
   if(service == "observation"){
-    allObs <- data.frame()
-    allAttrs <- data.frame()
     
-    #these attributes are pulled out and saved when doing binds to be reattached
-    attrs <- c("url","gml:identifier","generationDate","responsibleParty", "contact")
     featureID <- na.omit(gsub(":",".",dots[['siteNumbers']]))
     
-    for(f in featureID){
-      obsFID <- retrieveObservation(featureID = f, asDateTime, attrs, tz = tz)
-      obsFIDattr <- saveAttrs(attrs, obsFID)
-      obsFID <- removeAttrs(attrs, obsFID)
-      allObs <- bind_rows(allObs, obsFID)
-      allAttrs <- bind_rows(allAttrs, obsFIDattr)
+    allObs <- retrieveObservation(featureID, asDateTime, attrs, tz = tz)
       
-    }
-    allSites <- retrieveFeatureOfInterest(featureID = featureID)
-    attr(allObs, "siteInfo") <- allSites
-    attr(allObs, "other") <- allAttrs
+    #allSites <- retrieveFeatureOfInterest(featureID = featureID)
+    #attr(allObs, "siteInfo") <- allSites
     returnData <- allObs
     
   } else if (service == "featureOfInterest") {
@@ -164,24 +153,13 @@ readNGWMNsites <- function(siteNumbers){
 
 retrieveObservation <- function(featureID, asDateTime, attrs, tz){
   url <- drURL(base.name = "NGWMN", access = pkg.env$access, request = "GetObservation", 
-               service = "SOS", version = "2.0.0", observedProperty = "urn:ogc:def:property:OGC:GroundWaterLevel",
-               responseFormat = "text/xml", featureOfInterest = paste("VW_GWDP_GEOSERVER", featureID, sep = "."))
+               service = "SOS", version = "2.0.0", 
+               observedProperty = "urn:ogc:def:property:OGC:GroundWaterLevel",
+               responseFormat = "text/xml", 
+               featureOfInterest = paste(paste("VW_GWDP_GEOSERVER", 
+                                               featureID, sep = "."), collapse = ","))
   
   returnData <- importNGWMN(url, asDateTime=asDateTime, tz = tz)
-  
-  #TODO: a lot of this can go?
- 
-  #mutate removes the attributes, need to save and append
-  attribs <- saveAttrs(attrs, returnData)
-  if(nrow(returnData) > 0){
-    #tack on site number
-    siteNum <- rep(sub('.*\\.', '', featureID), nrow(returnData))
-    returnData <- mutate(returnData, site = siteNum)
-    numCol <- ncol(returnData)
-    returnData <- returnData[,c(numCol,1:(numCol - 1))] #move siteNum to the left
-  }
-  attributes(returnData) <- c(attributes(returnData), as.list(attribs))
-  
   return(returnData)
 }
 
@@ -225,12 +203,4 @@ saveAttrs <- function(attrs, df){
     toReturn <- as.data.frame(attribs, stringsAsFactors = FALSE)
   }
   return(toReturn)
-}
-
-#strip specified attributes from a data frame
-removeAttrs <- function(attrs, df){
-  for(a in attrs){
-    attr(df, a) <- NULL
-  }
-  return(df)
 }

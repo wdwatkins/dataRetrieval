@@ -92,14 +92,40 @@ getQuerySummary <- function(url){
 
 retryGetOrPost <- function(obs_url, ...) {
   resp <- NULL
-  if (nchar(obs_url) < 2048) {
+  print(nchar(obs_url))
+  if (nchar(obs_url) < 2048 || grepl(pattern = "ngwmn", x= obs_url)) {
     resp <- RETRY("GET", obs_url, ..., user_agent(default_ua()))
-  } else {
+  } else if(!grepl(pattern = "ngwmn", x = obs_url)){
     split <- strsplit(obs_url, "?", fixed=TRUE)
     obs_url <- split[[1]][1]
     query <- split[[1]][2]
     resp <- RETRY("POST", obs_url, ..., body = query,
           content_type("application/x-www-form-urlencoded"), user_agent(default_ua()))
+  } else { #NGWMN takes XML in POST body
+    split <- strsplit(obs_url, "?", fixed=TRUE)
+    obs_url <- split[[1]][1]
+    query <- split[[1]][2]
+    post_body <- build_NGWMN_post_body(query)
+    resp <- RETRY("POST", obs_url, ..., body = as.character(post_body),
+                  content_type("application/xml"), 
+                  user_agent(default_ua()), progress())
   }
   return(resp)
+}
+
+build_NGWMN_post_body <- function(query_string) {
+  #add FOI nodes to this
+  body <- read_xml('<?xml version="1.0" encoding="UTF-8"?>
+    <sos:GetObservation xmlns:sos="http://www.opengis.net/sos/2.0">
+                           <sos:offering>GW_LEVEL</sos:offering>
+                           <sos:observedProperty>"urn:ogc:def:property:OGC:GroundWaterLevel"</sos:observedProperty>
+                           </sos:GetObservation> ')
+  #split out sites, construct child nodes
+  sites <- unlist(strsplit(sub('.*\\=', '', query_string), split = ","))
+  #not sure why xml_add_child adds a "<" to child nodes, leaving it off below
+  site_nodes <- paste0("sos:featureOfInterest>", sites, "</sos:featureOfInterest>")
+  for(node in site_nodes) {
+    xml_add_child(body, node)
+  }
+  return(body)
 }

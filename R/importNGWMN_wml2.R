@@ -50,6 +50,7 @@ importNGWMN <- function(input, asDateTime=FALSE, tz="UTC"){
     raw <- TRUE
   } else {
     returnedDoc <- xml_root(getWebServiceData(input, encoding='gzip'))
+    message("Download complete")
   }
   
   response <- xml_name(returnedDoc)
@@ -64,9 +65,16 @@ importNGWMN <- function(input, asDateTime=FALSE, tz="UTC"){
       }
       return(df)
     }
+    site_df_list <- lapply(X = timeSeries, FUN = importWaterML2,
+                          asDateTime=asDateTime, tz = tz)
+    # site_df_list <- list()
+    # for(ts in timeSeries) {
+    #   #this is very slow, not sure if lapply vs looping makes a difference
+    #   #TODO: can importWaterML2 be optimized, or at least put a progress bar here
+    #   parsed_ts <- importWaterML2(ts, asDateTime = asDateTime, tz = tz)
+    #   site_df_list <- list(site_df_list, parsed_ts)
+    # }
     
-    site_df_list <- lapply(X = timeSeries, FUN = importWaterML2, 
-                           asDateTime=asDateTime, tz = tz)
     #pull out attributes from each, then bind rows
     attrs_to_save <- c("dateStamp", "featureOfInterest", "contact",
                        "responsibleParty")
@@ -79,8 +87,7 @@ importNGWMN <- function(input, asDateTime=FALSE, tz="UTC"){
       url <- input
       attr(mergedDF, "url") <- url
     }
-    
-    if(asDateTime){
+    if(!is.null(mergedDF$date) && asDateTime){
       mergedDF$date <- as.Date(mergedDF$date)
     }
     
@@ -130,7 +137,7 @@ importWaterML2 <- function(input, asDateTime, tz){
     return(emptyDF)
   }
   wml2_parsed <- parseWaterML2TimeSeries(wml2_nodes, asDateTime, tz)
-  
+  message("finished one")
   foi <- xml_attr(xml_find_all(input, ".//om:featureOfInterest"), "title") 
   foi_agency_id <- sub('.*\\ ', '', foi)
   siteID <- strsplit(x = foi_agency_id, split = "[.|-]")[[1]][[2]]
