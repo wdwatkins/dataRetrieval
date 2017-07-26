@@ -326,7 +326,6 @@ test_that("NGWMN functions working", {
                             siteNumbers = na_colons, asDateTime = FALSE)
   expect_is(returnDF, "data.frame")
   expect_true(nrow(returnDF) > 1)
-  expect_true(!is.null(attributes(returnDF)$siteInfo))
   
   sites <- c("USGS:424427089494701", NA)
   siteInfo <- readNGWMNsites(sites)
@@ -358,21 +357,6 @@ test_that("long urls use POST", {
     headers = function(resp) list(`content-type` = "logical"),
     content = function(resp, encoding) resp,
     expect_true(getWebServiceData(url)),
-    .env = "httr"
-  )
-})
-
-test_that("ngwmn urls don't use post", {
-  testthat::skip_on_cran()
-  url <- paste0(rep("urlwithngwmn", 200), collapse = '')
-  with_mock(
-    RETRY = function(method, ...) {
-      return(method == "POST")
-    },
-    status_code = function(resp) 200,
-    headers = function(resp) list(`content-type` = "logical"),
-    content = function(resp, encoding) resp,
-    expect_false(getWebServiceData(url)),
     .env = "httr"
   )
 })

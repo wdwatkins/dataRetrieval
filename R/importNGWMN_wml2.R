@@ -36,7 +36,7 @@
 #' data <- importNGWMN(obs_url)
 #' }
 #' 
-importNGWMN <- function(input, asDateTime=FALSE, tz="UTC"){
+importWaterML2 <- function(input, asDateTime=FALSE, tz="UTC"){
   
   if(tz != ""){
     tz <- match.arg(tz, OlsonNames())
@@ -54,9 +54,9 @@ importNGWMN <- function(input, asDateTime=FALSE, tz="UTC"){
   }
   
   response <- xml_name(returnedDoc)
-  if(response == "GetObservationResponse"){
+  if(response == "GetObservationResponse" || response == "Collection"){
     
-    timeSeries <- xml_find_all(returnedDoc, "//sos:observationData") #each parameter/site combo
+    timeSeries <- xml_find_all(returnedDoc, "//om:OM_Observation") #each parameter/site combo
     
     if(0 == length(timeSeries)){
       df <- data.frame()
@@ -65,8 +65,12 @@ importNGWMN <- function(input, asDateTime=FALSE, tz="UTC"){
       }
       return(df)
     }
-    site_df_list <- lapply(X = timeSeries, FUN = importWaterML2,
-                          asDateTime=asDateTime, tz = tz)
+    
+    #need to treat NWIS wml2 a bit differently
+    if(response == "Collection") nwis <- TRUE else nwis <- FALSE
+    
+    site_df_list <- lapply(X = timeSeries, FUN = parseGetObservationResponse,
+                          asDateTime=asDateTime, tz = tz, nwis = nwis)
     # site_df_list <- list()
     # for(ts in timeSeries) {
     #   #this is very slow, not sure if lapply vs looping makes a difference
@@ -124,8 +128,7 @@ importNGWMN <- function(input, asDateTime=FALSE, tz="UTC"){
 #' @importFrom dplyr mutate select
 #' @export
 #'
-importWaterML2 <- function(input, asDateTime, tz){
-  
+parseGetObservationResponse <- function(input, asDateTime, tz, nwis){
   wml2_nodes <- xml_find_all(input, ".//wml2:MeasurementTimeseries")
   if(length(wml2_nodes) == 0) { #site has no data
     emptyDF <- data.frame()
@@ -140,20 +143,22 @@ importWaterML2 <- function(input, asDateTime, tz){
   message("finished one")
   foi <- xml_attr(xml_find_all(input, ".//om:featureOfInterest"), "title") 
   foi_agency_id <- sub('.*\\ ', '', foi)
-  siteID <- strsplit(x = foi_agency_id, split = "[.|-]")[[1]][[2]]
-  
+  siteID <- tail(strsplit(x = foi_agency_id, split = "[.|-]")[[1]], n = 1)
   #add new columns
-  wml2_parsed <- mutate(wml2_parsed, featureOfInterest=foi_agency_id, site_no=siteID)
-  wml2_parsed_reordered <- select(wml2_parsed, featureOfInterest, source, 
-                                  site_no, everything())
+  if(!nwis) {
+    wml2_parsed <- mutate(wml2_parsed, featureOfInterest=foi_agency_id, site_no=siteID)
+    wml2_parsed <- select(wml2_parsed, featureOfInterest, source, 
+                          site_no, everything())
+    
+    #tack on attributes
+    attr(wml2_parsed, "dateStamp") <- xml_text(xml_find_all(input, ".//gco:DateTime")) 
+    attr(wml2_parsed, "featureOfInterest") <- foi_agency_id
+    meta <- xml_find_all(input, ".//gmd:contact")
+    attr(wml2_parsed, "contact") <- xml_attr(meta, "href")
+    attr(wml2_parsed, "responsibleParty") <- xml_text(xml_find_all(meta, ".//gco:CharacterString"))
+  }
   
-  #tack on attributes
-  attr(wml2_parsed_reordered, "dateStamp") <- xml_text(xml_find_all(input, ".//gco:DateTime")) 
-  attr(wml2_parsed_reordered, "featureOfInterest") <- foi_agency_id
-  meta <- xml_find_all(input, ".//gmd:contact")
-  attr(wml2_parsed_reordered, "contact") <- xml_attr(meta, "href")
-  attr(wml2_parsed_reordered, "responsibleParty") <- xml_text(xml_find_all(meta, ".//gco:CharacterString"))
-  return(wml2_parsed_reordered)
+  return(wml2_parsed)
 }
 
 

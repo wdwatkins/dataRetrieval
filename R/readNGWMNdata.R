@@ -159,7 +159,7 @@ retrieveObservation <- function(featureID, asDateTime, attrs, tz){
                featureOfInterest = paste(paste("VW_GWDP_GEOSERVER", 
                                                featureID, sep = "."), collapse = ","))
   
-  returnData <- importNGWMN(url, asDateTime=asDateTime, tz = tz)
+  returnData <- importWaterML2(url, asDateTime=asDateTime, tz = tz)
   return(returnData)
 }
 
@@ -187,7 +187,7 @@ retrieveFeatureOfInterest <- function(..., asDateTime, srsName="urn:ogc:def:crs:
     stop("Geographical filter not specified. Please use siteNumbers or bbox")
   }
   
-  siteDF <- importNGWMN(url, asDateTime, tz = "")
+  siteDF <- importWaterML2(url, asDateTime, tz = "")
   attr(siteDF, "url") <- url
   attr(siteDF, "queryTime") <- Sys.time()
   return(siteDF)
