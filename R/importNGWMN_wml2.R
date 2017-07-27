@@ -123,10 +123,10 @@ importWaterML2 <- function(input, asDateTime=FALSE, tz="UTC"){
 #' @param input input nodes - should be an sos:observationData node and children
 #' @param asDateTime logical should dateTimes be converted from strings?
 #' @param tz character timezone
+#' @param nwis logical Is this from NWIS or NGWMN
 #' @return parsed ML2 data and associated metadata
 #' @importFrom xml2 xml_find_all xml_text xml_attr
 #' @importFrom dplyr mutate select
-#' @export
 #'
 parseGetObservationResponse <- function(input, asDateTime, tz, nwis){
   wml2_nodes <- xml_find_all(input, ".//wml2:MeasurementTimeseries")
@@ -149,7 +149,8 @@ parseGetObservationResponse <- function(input, asDateTime, tz, nwis){
     wml2_parsed <- mutate(wml2_parsed, featureOfInterest=foi_agency_id, site_no=siteID)
     wml2_parsed <- select(wml2_parsed, featureOfInterest, source, 
                           site_no, everything())
-    
+    site_no <- '.dplyr_var'
+    featureOfInterest <- '.dply_var'
     #tack on attributes
     attr(wml2_parsed, "dateStamp") <- xml_text(xml_find_all(input, ".//gco:DateTime")) 
     attr(wml2_parsed, "featureOfInterest") <- foi_agency_id

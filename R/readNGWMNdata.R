@@ -56,7 +56,7 @@ readNGWMNdata <- function(service, ..., asDateTime = TRUE, tz = "UTC"){
     
     featureID <- na.omit(gsub(":",".",dots[['siteNumbers']]))
     
-    allObs <- retrieveObservation(featureID, asDateTime, attrs, tz = tz)
+    allObs <- retrieveObservation(featureID, asDateTime, tz = tz)
       
     #allSites <- retrieveFeatureOfInterest(featureID = featureID)
     #attr(allObs, "siteInfo") <- allSites
