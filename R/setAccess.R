@@ -58,7 +58,8 @@ access = match.arg(access, c('public','internal','cooperator','USGS'))
   pkg.env$wqpActivity = "https://www.waterqualitydata.us/Activity/search"
   pkg.env$wqpMetrics = "https://www.waterqualitydata.us/ActivityMetric/search"
   
-  pkg.env$NGWMN = "https://cida-test.er.usgs.gov/ngwmn_cache/sos"
+  #pkg.env$NGWMN = "https://cida-test.er.usgs.gov/ngwmn_cache/sos"
+  pkg.env$NGWMN = "http://cida-eros-ngwmndev.er.usgs.gov:8080/ngwmn_cache/sos"
   
   options(Access.dataRetrieval = access)
 }

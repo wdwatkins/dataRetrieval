@@ -99,8 +99,8 @@ getQuerySummary <- function(url){
 }
 
 retryGetOrPost <- function(obs_url, ...) {
-  resp <- NULL
-  if (nchar(obs_url) < 2048 || grepl(pattern = "request=GetFeatureOfInterest", x= obs_url)) {
+  resp <- NULL #|| grepl(pattern = "request=GetFeatureOfInterest", x= obs_url)
+  if (nchar(obs_url) < 2048 ) {
     resp <- RETRY("GET", obs_url, ..., user_agent(default_ua()))
   } else if(!grepl(pattern = "ngwmn", x = obs_url)){
     split <- strsplit(obs_url, "?", fixed=TRUE)
