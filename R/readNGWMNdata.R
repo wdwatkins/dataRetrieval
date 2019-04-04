@@ -58,19 +58,32 @@ readNGWMNdata <- function(service, ..., asDateTime = TRUE, tz = "UTC"){
     
     allObs <- retrieveObservation(featureID, asDateTime, tz = tz)
       
-    #allSites <- retrieveFeatureOfInterest(featureID = featureID)
-    #attr(allObs, "siteInfo") <- allSites
+    }
+    
+    allSites <- tryCatch({
+      retrieveFeatureOfInterest(featureID = featureID)
+    }, error = function(cond){return(NULL)})
+    
+    if(!is.null(allSites)){
+      attr(allObs, "siteInfo") <- allSites
+    }
+    
+    attr(allObs, "other") <- allAttrs
     returnData <- allObs
     
   } else if (service == "featureOfInterest") {
     
     if("siteNumbers" %in% names(dots)){
       featureID <- na.omit(gsub(":",".",dots[['siteNumbers']]))
-      allSites <- retrieveFeatureOfInterest(featureID = featureID)
+      allSites <- tryCatch({
+        retrieveFeatureOfInterest(featureID = featureID)
+      })
     }
     
     if("bbox" %in% names(dots)){
-      allSites <- retrieveFeatureOfInterest(bbox=dots[['bbox']])
+      allSites <- tryCatch({
+        retrieveFeatureOfInterest(bbox=dots[['bbox']])
+      })
     }
     returnData <- allSites
     

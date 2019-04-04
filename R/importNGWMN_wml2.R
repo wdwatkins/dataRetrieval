@@ -49,8 +49,9 @@ importWaterML2 <- function(input, asDateTime=FALSE, tz="UTC"){
     returnedDoc <- read_xml(input)
     raw <- TRUE
   } else {
-    returnedDoc <- xml_root(getWebServiceData(input, encoding='gzip'))
-    message("Download complete")
+    returnedDoc <- getWebServiceData(input, encoding='gzip')
+    
+    returnedDoc <- xml_root(returnedDoc)
   }
   
   response <- xml_name(returnedDoc)
@@ -95,7 +96,11 @@ importWaterML2 <- function(input, asDateTime=FALSE, tz="UTC"){
       mergedDF$date <- as.Date(mergedDF$date)
     }
     
+<<<<<<< HEAD
   } else if(response == "GetFeatureOfInterestResponse"){
+=======
+  } else if (response == "GetFeatureOfInterestResponse"){
+>>>>>>> aed66956cdfee4c33652ac467824738540b4260b
     featureMembers <- xml_find_all(returnedDoc, ".//sos:featureMember")
     site <- xml_text(xml_find_all(featureMembers,".//gml:identifier"))
     site <- substring(site, 8)
@@ -110,9 +115,12 @@ importWaterML2 <- function(input, asDateTime=FALSE, tz="UTC"){
     dec_lon_va <- "dplyr var"
     siteLocs <- mutate(siteLocs, dec_lat_va=as.numeric(dec_lat_va), dec_lon_va=as.numeric(dec_lon_va))
     mergedDF <- cbind.data.frame(site, description = siteDesc, siteLocs, stringsAsFactors = FALSE) 
-  }
-  else{
+  
+  } else if (response == "ExceptionReport"){
+    return(data.frame())
+  } else {
     stop("Unrecognized response from the web service")
+    return(data.frame())
   }
   return(mergedDF)
 }
@@ -186,12 +194,14 @@ parseWaterML2TimeSeries <- function(input, asDateTime, tz) {
                       time = character(0), dateTime = character(0), value = numeric(0),
                       uom = character(0), comment = character(0), stringsAsFactors = FALSE))
   }
-  #searching from input instead of TVP, because TVP makes xml2 hang
-  #don't know why that is happening
-  rawTime <- xml_text(xml_find_all(input,".//wml2:time"))
+
+  rawTime <- xml_text(xml_find_all(returnedDoc, "./wml2:point/wml2:MeasurementTVP/wml2:time"))
   
-  valueNodes <- xml_find_all(input,".//wml2:value")
-  values <- as.numeric(xml_text(valueNodes))
+  valueNodes <- xml_find_all(returnedDoc,"./wml2:point/wml2:MeasurementTVP/wml2:value")
+  charValues <- xml_text(valueNodes)
+  nilValues <- as.logical(xml_attr(valueNodes, "nil"))
+  charValues[nilValues] <- NA
+  values <- as.numeric(charValues)
   nVals <- length(values)
   
   #df of date, time, dateTime
@@ -218,11 +228,15 @@ parseWaterML2TimeSeries <- function(input, asDateTime, tz) {
   }
   
   uom <- xml_attr(valueNodes, "uom", default = NA)
-  #same here with xml_find_all not liking TVP
-  source <- xml_attr(xml_find_all(input, ".//wml2:source"), "title")
-  comment <- xml_text(xml_find_all(input, ".//wml2:comment"))
-  tvpQuals <- xml_text(xml_find_all(input, ".//swe:description"))
-  defaultMeta <- xml_find_all(input, ".//wml2:DefaultTVPMeasurementMetadata")
+
+  source <- xml_attr(xml_find_all(returnedDoc, 
+                                  "./wml2:point/wml2:MeasurementTVP/wml2:metadata/wml2:source"), 
+                     "title")
+  comment <- xml_text(xml_find_all(returnedDoc, 
+                  "./wml2:point/wml2:MeasurementTVP/wml2:metadata/wml2:comment"))
+  tvpQuals <- xml_text(xml_find_all(returnedDoc, 
+                        "./wml2:point/wml2:MeasurementTVP/wml2:metadata/swe:description"))
+  defaultMeta <- xml_find_all(returnedDoc, ".//wml2:DefaultTVPMeasurementMetadata")
   defaultQuals <- xml_text(xml_find_all(defaultMeta, ".//swe:description"))
   defaultUOM <- xml_attr(xml_find_all(defaultMeta, ".//wml2:uom"), "title", default = NA)
  
@@ -230,7 +244,7 @@ parseWaterML2TimeSeries <- function(input, asDateTime, tz) {
                   uom = uom, comment = comment)
   df_use <- df_vars[sapply(df_vars, function(x){length(x) > 0 && !all(is.na(x))})]
   df <- data.frame(df_use, stringsAsFactors = FALSE)
-  
+  if(!"value" %in% names(df)) {df$value <- NA_real_}
   #from the default metadata section
   #append to existing attributes if they aren't empty
    mdAttribs <- list(defaultQualifier=defaultQuals, defaultUOM=defaultUOM, 
